@@ -12,8 +12,7 @@ TESTS_REQUIRE = [
 
 setup(name='umbral',
       version='0.1',
-      description='Umbral PRE implementation for NuCypher KMS',
-      #ext_modules=[elliptic_curve],
+      description='Umbral PRE implementation for NuCypher',
       extras_require={'testing': TESTS_REQUIRE},
       install_requires=INSTALL_REQUIRES,
       packages=['umbral'])
