@@ -12,14 +12,13 @@ from io import BytesIO
 
 class KFrag(object):
     def __init__(self, id, bn_key, point_noninteractive, 
-                 point_commitment, point_xcoord, bn_sig1, bn_sig2):
+                 point_commitment, point_xcoord, signature):
         self._id = id
         self._bn_key = bn_key
         self._point_noninteractive = point_noninteractive
         self._point_commitment = point_commitment
         self._point_xcoord = point_xcoord
-        self._bn_sig1 = bn_sig1
-        self._bn_sig2 = bn_sig2
+        self._signature = signature
 
     @classmethod
     def get_size(cls, curve: ec.EllipticCurve=None):
@@ -50,10 +49,9 @@ class KFrag(object):
         ni = Point.from_bytes(data.read(point_size), curve)
         commitment = Point.from_bytes(data.read(point_size), curve)
         xcoord = Point.from_bytes(data.read(point_size), curve)
-        sig1 = CurveBN.from_bytes(data.read(bn_size), curve)
-        sig2 = CurveBN.from_bytes(data.read(bn_size), curve)
+        sig = data.read(2*bn_size)
 
-        return cls(id, key, ni, commitment, xcoord, sig1, sig2)
+        return cls(id, key, ni, commitment, xcoord, sig)
 
     def to_bytes(self):
         """
@@ -63,10 +61,8 @@ class KFrag(object):
         ni = self._point_noninteractive.to_bytes()
         commitment = self._point_commitment.to_bytes()
         xcoord = self._point_xcoord.to_bytes()
-        sig1 = self._bn_sig1.to_bytes()
-        sig2 = self._bn_sig2.to_bytes()
 
-        return self._id + key + ni + commitment + xcoord + sig1 + sig2
+        return self._id + key + ni + commitment + xcoord + self._signature
 
     def verify(self, pubkey_a: UmbralPublicKey,
                         pubkey_b: UmbralPublicKey,
@@ -82,14 +78,13 @@ class KFrag(object):
 
 class CorrectnessProof(object):
     def __init__(self, point_e2, point_v2, point_kfrag_commitment, 
-                 point_kfrag_pok, bn_kfrag_sig1, bn_kfrag_sig2, bn_sig, 
+                 point_kfrag_pok, kfrag_signature, bn_sig, 
                  metadata:bytes=None):
         self._point_e2 = point_e2
         self._point_v2 = point_v2
         self._point_kfrag_commitment = point_kfrag_commitment
         self._point_kfrag_pok = point_kfrag_pok
-        self._bn_kfrag_sig1 = bn_kfrag_sig1
-        self._bn_kfrag_sig2 = bn_kfrag_sig2
+        self._kfrag_signature = kfrag_signature
         self._bn_sig = bn_sig
         self.metadata = metadata
 
@@ -121,14 +116,13 @@ class CorrectnessProof(object):
         v2 = Point.from_bytes(data.read(point_size), curve)
         kfrag_commitment = Point.from_bytes(data.read(point_size), curve)
         kfrag_pok = Point.from_bytes(data.read(point_size), curve)
-        kfrag_sig1 = CurveBN.from_bytes(data.read(bn_size), curve)
-        kfrag_sig2 = CurveBN.from_bytes(data.read(bn_size), curve)
+        kfrag_sig = data.read(2*bn_size)
         sig = CurveBN.from_bytes(data.read(bn_size), curve)
 
         metadata = data.read() or None
 
         return cls(e2, v2, kfrag_commitment, kfrag_pok, 
-                   kfrag_sig1, kfrag_sig2, sig, metadata=metadata)
+                   kfrag_sig, sig, metadata=metadata)
 
     def to_bytes(self) -> bytes:
         """
@@ -138,23 +132,20 @@ class CorrectnessProof(object):
         v2 = self._point_v2.to_bytes()
         kfrag_commitment = self._point_kfrag_commitment.to_bytes()
         kfrag_pok = self._point_kfrag_pok.to_bytes()
-        kfrag_sig1 = self._bn_kfrag_sig1.to_bytes()
-        kfrag_sig2 = self._bn_kfrag_sig2.to_bytes()
         sig = self._bn_sig.to_bytes()
 
-        result = e2            \
-            + v2               \
-            + kfrag_commitment \
-            + kfrag_pok        \
-            + kfrag_sig1       \
-            + kfrag_sig2       \
+        result = e2                 \
+            + v2                    \
+            + kfrag_commitment      \
+            + kfrag_pok             \
+            + self._kfrag_signature \
             + sig              
 
         result += self.metadata or b''
 
         return result
 
-    def _bn_keytes__(self):
+    def __bytes__(self):
         return self.to_bytes()
 
 
@@ -231,13 +222,12 @@ class CapsuleFrag(object):
         return assess_cfrag_correctness(self, capsule, pubkey_a_point,
                                         pubkey_b_point, params)
 
-    def attach_proof(self, e2, v2, u1, u2, z1, z2, z3, metadata):
+    def attach_proof(self, e2, v2, u1, u2, kfrag_signature, z3, metadata):
         self.proof = CorrectnessProof(point_e2=e2,
                          point_v2=v2,
                          point_kfrag_commitment=u1,
                          point_kfrag_pok=u2,
-                         bn_kfrag_sig1=z1,
-                         bn_kfrag_sig2=z2,
+                         kfrag_signature=kfrag_signature,
                          bn_sig=z3,
                          metadata=metadata)
 

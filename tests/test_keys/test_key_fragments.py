@@ -17,8 +17,7 @@ def test_kfrag_serialization(alices_keys):
     assert new_frag._point_noninteractive == kfrags[0]._point_noninteractive
     assert new_frag._point_commitment == kfrags[0]._point_commitment
     assert new_frag._point_xcoord == kfrags[0]._point_xcoord
-    assert new_frag._bn_sig1 == kfrags[0]._bn_sig1
-    assert new_frag._bn_sig2 == kfrags[0]._bn_sig2
+    assert new_frag._signature == kfrags[0]._signature
 
 
 def test_cfrag_serialization_with_proof_and_metadata(alices_keys):
@@ -49,8 +48,7 @@ def test_cfrag_serialization_with_proof_and_metadata(alices_keys):
     assert new_proof._point_v2 == proof._point_v2
     assert new_proof._point_kfrag_commitment == proof._point_kfrag_commitment
     assert new_proof._point_kfrag_pok == proof._point_kfrag_pok
-    assert new_proof._bn_kfrag_sig1 == proof._bn_kfrag_sig1
-    assert new_proof._bn_kfrag_sig2 == proof._bn_kfrag_sig2
+    assert new_proof._kfrag_signature == proof._kfrag_signature
     assert new_proof._bn_sig == proof._bn_sig
     assert new_proof.metadata == metadata
     assert new_proof.metadata == proof.metadata
@@ -85,8 +83,7 @@ def test_cfrag_serialization_with_proof_but_no_metadata(alices_keys):
     assert new_proof._point_v2 == proof._point_v2
     assert new_proof._point_kfrag_commitment == proof._point_kfrag_commitment
     assert new_proof._point_kfrag_pok == proof._point_kfrag_pok
-    assert new_proof._bn_kfrag_sig1 == proof._bn_kfrag_sig1
-    assert new_proof._bn_kfrag_sig2 == proof._bn_kfrag_sig2
+    assert new_proof._kfrag_signature == proof._kfrag_signature
     assert new_proof._bn_sig == proof._bn_sig
     assert new_proof.metadata is None
 

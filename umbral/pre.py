@@ -1,4 +1,4 @@
-from typing import Tuple, Union, List
+from typing import Tuple, Union, List, Callable
 
 from cryptography.hazmat.backends.openssl import backend
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -214,7 +214,8 @@ class Capsule(object):
 def split_rekey(privkey_a_bn: Union[UmbralPrivateKey, CurveBN],
                 pubkey_b_point: Union[UmbralPublicKey, Point],
                 threshold: int, N: int,
-                params: UmbralParameters=None) -> List[KFrag]:
+                params: UmbralParameters=None, 
+                signer: Callable=None) -> List[KFrag]:
     """
     Creates a re-encryption key from Alice to Bob and splits it in KFrags,
     using Shamir's Secret Sharing. Requires a threshold number of KFrags 
@@ -268,22 +269,30 @@ def split_rekey(privkey_a_bn: Union[UmbralPrivateKey, CurveBN],
     for _ in range(N):
         id = os.urandom(bn_size)
 
-        share_x = CurveBN.hash(id, hashed_dh_tuple, params=params)
+        x = CurveBN.hash(id, hashed_dh_tuple, params=params)
 
-        rk = poly_eval(coeffs, share_x)
+        rk = poly_eval(coeffs, x)
 
         u1 = rk * u
 
-        # TODO: change this Schnorr signature for Ed25519 or ECDSA (#97)
-        y = CurveBN.gen_rand(params.curve)
-        g_y = y * g
-        signature_input = (g_y, id, pubkey_a_point, pubkey_b_point, u1, ni, xcoord)
-        z1 = CurveBN.hash(*signature_input, params=params)
-        z2 = y - privkey_a_bn * z1
+        signature_input = (id, pubkey_a_point, pubkey_b_point, u1, ni, xcoord)
+        if signer:
+            input_bytes = b''
+            for element in signature_input:
+                input_bytes += bytes(element)
+
+            signature = signer(input_bytes)
+        else:
+            y = CurveBN.gen_rand(params.curve)
+            g_y = y * g
+            signature_input += (g_y, )
+            z1 = CurveBN.hash(*signature_input, params=params)
+            z2 = y - privkey_a_bn * z1
+            signature = z1.to_bytes() + z2.to_bytes()
 
         kfrag = KFrag(id=id, bn_key=rk, 
                       point_noninteractive=ni, point_commitment=u1, 
-                      point_xcoord=xcoord, bn_sig1=z1, bn_sig2=z2)
+                      point_xcoord=xcoord, signature=signature)
         kfrags.append(kfrag)
 
     return kfrags
